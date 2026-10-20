@@ -8,6 +8,242 @@ Global Execution, Routing, and Agent Lifecycle Director. A locally hosted workfl
 
 The repository includes the complete backend, frontend source, dependency manifests and lockfiles, launcher scripts, tests, CI workflow, and verification reports. Installed dependencies (`.venv`, `node_modules`), compiled UI assets, runtime databases, agent workspace files, logs, and local environment files stay on the workstation and are ignored by Git. On another machine, run `scripts/setup.ps1` to install dependencies and build the dashboard, select an installed Ollama model, and run `scripts/connect-codex.ps1` to register that checkout's MCP bridge.
 
+## Dependencies and prerequisites
+
+The supplied setup and launcher scripts target **Windows with PowerShell**. The original workstation was verified with Python 3.12.14, Node.js 24.22.0, Ollama 0.40.6, and Codex CLI 0.163.0. Those are the tested versions, not a requirement to install those exact releases.
+
+| Dependency | Requirement | Purpose |
+| --- | --- | --- |
+| Python | 3.12+ with `venv` and `pip`; 3.12 is the tested baseline | Backend, workers, MCP bridge and tests |
+| Node.js and npm | Node.js 22+ with npm | Install and compile the React dashboard |
+| Git | Available on `PATH` | Clone and update this private repository |
+| PowerShell | Available on Windows | Run setup and launcher scripts |
+| Ollama | Running locally, with at least one downloaded model | Local inference and cloud-to-local fallback |
+| Codex CLI | Optional for Ollama-only use; required for Codex workers and bridge registration | Cloud/local Codex execution and MCP configuration |
+| Codex desktop app | Optional | Control GERALD through the desktop app's MCP tools |
+| GitHub account access | Permission to clone `KSGhost13/gerald` | This repository is private |
+
+Choose a local model that fits your machine's available memory. GERALD uses the models already installed in Ollama; setup does not download any models automatically. SQLite is included with Python, so no separate database server is needed. The compiled dashboard needs no internet access to fetch fonts, scripts or CDN assets.
+
+### Python packages
+
+`scripts/setup.ps1` installs these packages into the project's `.venv` using [backend/requirements.txt](backend/requirements.txt). The root [requirements.txt](requirements.txt) includes that same manifest.
+
+| Package | Declared version | Purpose |
+| --- | --- | --- |
+| `fastapi` | `>=0.115,<1` | REST API and WebSocket endpoints |
+| `uvicorn[standard]` | `>=0.34,<1` | ASGI server and protocol support |
+| `httpx` | `>=0.28,<1` | Provider HTTP clients and API verification |
+| `psutil` | `>=6,<8` | Host/process telemetry and process cleanup |
+| `pywin32` | `>=308`, Windows only | Windows Job Objects for worker lifecycle containment |
+| `pydantic` | `>=2.10,<3` | Request and agent configuration validation |
+| `python-dotenv` | `>=1,<2` | Load local `.env` configuration |
+| `mcp` | `>=1.12,<2` | Codex MCP bridge and protocol verification |
+| `pytest` | `>=8,<10` | Backend test runner |
+| `pytest-asyncio` | `>=0.25,<2` | Async lifecycle/routing tests |
+
+[backend/requirements-lock.txt](backend/requirements-lock.txt) records the full installed Windows Python environment, including transitive dependencies. Normal setup uses the portable version ranges above; the Windows snapshot is a record of the original verified installation.
+
+### Frontend packages
+
+Versions are declared in [frontend/package.json](frontend/package.json); `npm ci` installs the exact dependency tree in [frontend/package-lock.json](frontend/package-lock.json).
+
+| Package(s) | Declared version | Purpose |
+| --- | --- | --- |
+| `react`, `react-dom` | `^19.0.0` | Dashboard rendering |
+| `@xyflow/react` | `^12.9.0` | Interactive workflow graph |
+| `framer-motion` | `^12.23.0` | UI animation |
+| `lucide-react` | `^0.468.0` | Interface icons |
+| `vite` | `^6.4.0` | Development server and production build |
+| `typescript` | `^5.9.0` | Type checking |
+| `@vitejs/plugin-react` | `^4.7.0` | React integration for Vite |
+| `tailwindcss`, `@tailwindcss/postcss` | `^4.3.3` | Tailwind styling and PostCSS adapter |
+| `postcss` | `^8.5.0` | CSS build pipeline |
+| `autoprefixer` | `^10.4.0` | Declared CSS tooling dependency |
+| `@types/react`, `@types/react-dom` | `^19.0.0` | React TypeScript definitions |
+
+## Setup guide: fresh Windows installation
+
+### 1. Install prerequisites and clone the repository
+
+Install Python, Node.js (including npm), Git, and Ollama, then open a new PowerShell window so their commands are available on `PATH`. Check them:
+
+```powershell
+python --version
+node --version
+npm --version
+git --version
+ollama --version
+```
+
+Clone using a GitHub account with access to this private repository:
+
+```powershell
+git clone https://github.com/KSGhost13/gerald.git
+Set-Location gerald
+```
+
+If Python is available through the Windows `py` launcher rather than `python`, create the environment explicitly before running setup:
+
+```powershell
+py -3.12 -m venv .venv
+```
+
+### 2. Start Ollama and choose a model
+
+Open the Ollama application, then list the models already installed:
+
+```powershell
+ollama list
+```
+
+If no Ollama server is running, start one in a **separate** PowerShell window with `ollama serve` and leave it running. Do not start a second server if the Ollama app already owns port 11434.
+
+You can use an existing local model. To download the coding model used to verify the Codex local adapter:
+
+```powershell
+ollama pull qwen2.5-coder:14b
+```
+
+This download is optional if you already have a suitable model. Confirm server connectivity:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:11434/api/tags
+```
+
+### 3. Configure your local environment
+
+Create `.env` without replacing an existing configuration, then edit it:
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+notepad .env
+```
+
+Set the default models to names shown by `ollama list`. For example, if you downloaded Qwen above:
+
+```dotenv
+GERALD_OLLAMA_URLS=http://127.0.0.1:11434
+GERALD_LOCAL_MODEL=qwen2.5-coder:14b
+GERALD_CODEX_LOCAL_MODEL=qwen2.5-coder:14b
+GERALD_TASK_TIMEOUT=180
+```
+
+The supplied `.env.example` uses `ornith-1.5:9b` for HTTP workers because that model was installed on the original workstation. **Change that default on a new machine unless that model is installed there.** Choose a tool-capable model for Codex local workers; `qwen2.5-coder:14b` was verified for that path.
+
+Leave `GERALD_CODEX_MODEL` empty to use the cloud Codex CLI default. `ANTHROPIC_API_KEY` and `GERALD_ANTHROPIC_MODEL` are optional and are only used when choosing the Anthropic provider. Local Ollama use does not require an API key. Keep credentials in `.env`, which Git ignores.
+
+### 4. Install project dependencies and build the dashboard
+
+From the repository root:
+
+```powershell
+.\scripts\setup.ps1
+```
+
+Setup creates `.venv` if necessary, runs `pip install -r backend/requirements.txt`, runs `npm ci` inside `frontend`, and compiles the UI with `npm run build`. It does not require activating the virtual environment.
+
+If you prefer to perform those steps manually:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+Push-Location frontend
+npm ci
+npm run build
+Pop-Location
+```
+
+Skip the first manual command if `.venv` already exists. The build creates `frontend/dist`, which is intentionally not committed to Git.
+
+### 5. Optional: connect Codex desktop and CLI
+
+Skip this step for an Ollama-only dashboard. To enable Codex integration, install the CLI if needed:
+
+```powershell
+npm install -g @openai/codex
+codex --version
+```
+
+For **cloud Codex workers**, sign in through the CLI and verify the session:
+
+```powershell
+codex login
+codex login status
+```
+
+Local Codex workers use Ollama through `--oss --local-provider ollama`. To let the desktop app and CLI control the dashboard through MCP, register this checkout:
+
+```powershell
+.\scripts\connect-codex.ps1
+codex mcp get gerald
+```
+
+Restart Codex after registration. Re-run registration if you move the checkout, because the MCP configuration stores absolute paths to this checkout's Python executable and bridge script. Keep the GERALD server running when using its MCP tools.
+
+### 6. Start the dashboard
+
+```powershell
+.\scripts\start.ps1
+```
+
+Open **http://127.0.0.1:8765**. The backend serves the compiled UI, API and WebSocket stream from one origin. Leave the terminal open; **Ctrl+C** shuts down the foreground server and its workers.
+
+For a hidden background instance instead:
+
+```powershell
+New-Item -ItemType Directory -Force data | Out-Null
+.\scripts\start-background.ps1
+```
+
+Stop that managed background instance with:
+
+```powershell
+.\scripts\stop.ps1
+```
+
+Run only one instance on a given port. On the original workstation, a prepared background instance may already be running; open the URL before starting another one. Launcher scripts read a custom port from the **PowerShell environment**, so set `$env:GERALD_PORT='8766'` before launching if you need another port. Editing `GERALD_PORT` in `.env` alone does not change the port selected by these PowerShell launchers; the MCP bridge must also be configured to reach the chosen port.
+
+### 7. Verify the installation and run your first mission
+
+In another PowerShell window at the repository root:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8765/api/health
+Invoke-RestMethod http://127.0.0.1:8765/api/integrations
+```
+
+Health should report `status: online`. Integrations should show the Ollama server online and list your installed models. In the dashboard, keep **LOCAL FALLBACK MODE** selected, forge a worker using an installed Ollama model, and submit a short directive. A fresh checkout starts with GERALD only; the original workstation's workers, missions and SQLite database are not part of the repository.
+
+To verify the MCP connection after registration:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verify-mcp.py
+```
+
+To check only local HTTP inference, without running the cloud verification:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verify-live.py ollama
+```
+
+The verification script submits a real generation request and updates `VERIFICATION.json`. Running it without provider arguments also checks Ollama CLI, Codex local and Codex cloud, so complete the optional Codex setup first if you want all four checks.
+
+## Setup troubleshooting
+
+| Symptom | Resolution |
+| --- | --- |
+| `python`, `npm`, `git`, `ollama` or `codex` is not recognized | Install the relevant prerequisite and reopen PowerShell. For Python, use `py -3.12 -m venv .venv` if the launcher is available. |
+| PowerShell blocks an unsigned setup script | Use the manual setup commands above in a PowerShell session permitted by your device's policy. Virtual environment activation is not required. |
+| Ollama connection fails | Open Ollama or run `ollama serve` in a separate terminal; check `GERALD_OLLAMA_URLS` and the `/api/tags` endpoint. |
+| Model not found | Use the exact name from `ollama list`, download the chosen model if needed, and update `.env` or the worker's configuration. Restart GERALD after changing `.env`. |
+| `frontend/dist/index.html` is missing | Run `scripts/setup.ps1`, or run `npm ci` and `npm run build` inside `frontend`. |
+| Port 8765 already has a listener | Open the existing dashboard, or stop this project's background instance with `scripts/stop.ps1`; do not launch a duplicate instance. |
+| Background launch fails on a completely fresh checkout | Create its log directory first with `New-Item -ItemType Directory -Force data`, or start once with `scripts/start.ps1`, which initializes runtime storage. |
+| Codex MCP tools are absent or point to an old checkout | Re-run `scripts/connect-codex.ps1`, restart Codex, and verify with `codex mcp get gerald`. |
+| Cloud Codex authentication fails | Run `codex login` and `codex login status`; local Ollama execution remains available. |
+| A model runs out of memory or times out | Choose a smaller installed model or increase `GERALD_TASK_TIMEOUT` in `.env`, then restart. |
+
 ## File directory map
 
 ```text
@@ -56,28 +292,6 @@ gerald/
     workspace/                    Worker input files and generated artifacts
     server*.log / server.pid      Managed background server diagnostics
 ```
-
-## Start on this machine
-
-Dependencies and the compiled frontend are already installed. Open PowerShell in this folder:
-
-```powershell
-.\scripts\start.ps1
-```
-
-Open **http://127.0.0.1:8765**. If the server is already running, open the URL directly. The backend serves the compiled frontend and WebSocket connection from the same origin. No frontend dev server is required.
-
-For a hidden background launch use `scripts/start-background.ps1`; stop that instance with `scripts/stop.ps1`. The delivered instance is already running in the background.
-
-For a fresh install, use Node.js 22+ and Python 3.12+, then run:
-
-```powershell
-.\scripts\setup.ps1
-.\scripts\connect-codex.ps1
-.\scripts\start.ps1
-```
-
-The setup script detects the normal Python command or this machine's Python installation. The existing environment was created with the bundled Python 3.12 runtime. Python dependency ranges are portable; `requirements-lock.txt` records the installed Windows environment, including Windows-specific packages.
 
 ## Use the dashboard
 
