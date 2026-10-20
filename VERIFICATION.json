@@ -1,0 +1,63 @@
+{
+  "integrations": {
+    "ollama": [
+      {
+        "url": "http://127.0.0.1:11434",
+        "online": true,
+        "models": [
+          "QwenWithFuck:latest",
+          "qwen3.8:27b",
+          "ornith-1.5:35b",
+          "ornith-1.5:9b",
+          "qwen2.5-coder:14b"
+        ]
+      }
+    ],
+    "codex": true,
+    "ollama_cli": true,
+    "anthropic": false,
+    "local_model": "ornith-1.5:9b",
+    "codex_local_model": "qwen2.5-coder:14b"
+  },
+  "providers": {
+    "ollama": {
+      "ok": true,
+      "output": "GERALD_READY",
+      "metrics": {
+        "effective_provider": "ollama",
+        "tokens": 37,
+        "tps": 45.21
+      }
+    },
+    "ollama-cli": {
+      "ok": true,
+      "output": "\n\nGERALD_READY\n\n",
+      "metrics": {
+        "effective_provider": "ollama-cli",
+        "pid": null,
+        "tokens": 36,
+        "tps": 45.38
+      }
+    },
+    "codex-ollama": {
+      "ok": true,
+      "output": "GERALD_READY",
+      "metrics": {
+        "effective_provider": "codex-ollama",
+        "pid": null,
+        "tokens": 5,
+        "tps": 0.23
+      }
+    },
+    "codex": {
+      "ok": true,
+      "output": "GERALD_READY",
+      "metrics": {
+        "effective_provider": "codex",
+        "pid": null,
+        "tokens": 8,
+        "tps": 1.41
+      }
+    }
+  }
+}

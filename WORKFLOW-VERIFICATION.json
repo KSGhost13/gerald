@@ -1,0 +1,45 @@
+{
+  "job": {
+    "id": "80cc33c798c1",
+    "goal": "Give a brief three-step checklist for planning a personal coding project. Keep the answer under 80 words.",
+    "status": "completed",
+    "pending": 0,
+    "errors": 0,
+    "time": 1792469889.993972
+  },
+  "agents": [
+    {
+      "name": "G.E.R.A.L.D.",
+      "status": "idle",
+      "output": "```json\n{\n  \"tasks\": [\n    {\n      \"agent_id\": \"629b6019cb36\",\n      \"task\": \"Produce a brief three-step checklist for planning a personal coding project (under 80 words).\"\n    }\n  ]\n}\n```",
+      "metrics": {
+        "tokens": 225,
+        "tps": 44.13,
+        "pid": null,
+        "effective_provider": "ollama"
+      }
+    },
+    {
+      "name": "ATLAS",
+      "status": "idle",
+      "output": "**Three-Step Project Planning Checklist**\n\n1. **Define scope:** Identify the problem, core features, and success criteria. Keep it focused.\n2. **Plan structure:** Sketch the architecture, choose your tech stack, and break the work into small tasks.\n3. **Set milestones:** Establish deadlines, test early, and iterate\u2014adjust as you learn.",
+      "metrics": {
+        "tokens": 243,
+        "tps": 44.11,
+        "pid": null,
+        "effective_provider": "ollama"
+      }
+    },
+    {
+      "name": "SCRIBE",
+      "status": "idle",
+      "output": "**Project Planning Checklist Summary:**\n\n- **Define scope:** Identify the problem, core features, and success criteria\u2014stay focused.\n- **Plan structure:** Sketch the architecture, select your tech stack, and break work into small tasks.\n- **Set milestones:** Establish deadlines, test early, and iterate based on what you learn.",
+      "metrics": {
+        "tokens": 131,
+        "tps": 44.33,
+        "pid": null,
+        "effective_provider": "ollama"
+      }
+    }
+  ]
+}
