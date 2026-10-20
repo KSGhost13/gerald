@@ -1,5 +1,5 @@
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 Provider = Literal['ollama', 'ollama-cli', 'codex', 'codex-ollama', 'anthropic', 'codex-session']
 
@@ -10,9 +10,26 @@ class AgentSpec(BaseModel):
     provider: Provider = 'ollama'
     model: str = Field(default='', max_length=160)
     server: str = ''
-    tools: list[Literal['workspace_read', 'workspace_write', 'system_metrics']] = Field(default_factory=list, max_length=3)
+    tools: list[Literal['workspace_read', 'workspace_write', 'system_metrics', 'qwen_canvas_read', 'qwen_canvas_write', 'qwen_outreach_draft']] = Field(default_factory=list, max_length=6)
+    qwen_profile: Literal['', 'client_acquisitions', 'coder', 'communicator', 'planner', 'researcher', 'ui_designer'] = ''
     x: float = 450
     y: float = 200
+
+    @model_validator(mode='after')
+    def qwen_permissions(self):
+        if self.qwen_profile and self.qwen_profile != 'coder' and 'workspace_write' in self.tools:
+            raise ValueError('Only the QwenW coder may write generated code; canvas writes use the scoped adapter')
+        if self.qwen_profile != 'client_acquisitions' and 'qwen_outreach_draft' in self.tools:
+            raise ValueError('Outreach draft capability is reserved for client acquisitions')
+        return self
+
+class CanvasEdit(BaseModel):
+    expected_revision: int = Field(ge=0)
+    section: Literal['sales_insights', 'research_metrics', 'architectural_blueprint', 'design_tokens', 'engineering_manifest']
+    value: dict
+
+class RevisionCheck(BaseModel):
+    expected_revision: int = Field(ge=0)
 
 class Edge(BaseModel):
     source: str

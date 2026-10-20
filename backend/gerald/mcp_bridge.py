@@ -19,13 +19,14 @@ async def gerald_state() -> dict:
 
 @mcp.tool()
 async def gerald_integrations() -> dict:
-    """Discover configured Ollama servers/models and installed Codex/Ollama CLIs."""
+    """Discover Ollama servers/models, CLI sign-in method, and non-secret cached Codex model IDs."""
     return await request('GET', '/integrations')
 
 @mcp.tool()
 async def gerald_forge(name: str, role: str, directive: str, provider: str = 'ollama', model: str = '', tools: list[str] | None = None) -> dict:
     """Create an agent. Providers: ollama, ollama-cli, codex, codex-ollama, anthropic.
     Tools: workspace_read, workspace_write, system_metrics. Automatically connects GERALD to the new worker.
+    Install QwenW profiles using the toolbox; its profile-scoped tools are not generic forge capabilities.
     """
     return await request('POST', '/agents', {'name': name, 'role': role, 'directive': directive,
         'provider': provider, 'model': model, 'tools': tools or []})
@@ -74,6 +75,19 @@ async def gerald_session_respond(request_id: str, thread_id: str, claim_token: s
     """
     return await request('POST', f'/session/requests/{request_id}/respond',
                          {'thread_id': thread_id, 'claim_token': claim_token, 'response': response, 'tasks': tasks or [], 'error': error})
+
+@mcp.tool()
+async def gerald_qwenw_state() -> dict:
+    """Read imported QwenW profiles, scoped tool catalogue, shared canvas, review status and draft-only outreach."""
+    return await request('GET', '/packs/qwenw')
+
+@mcp.tool()
+async def gerald_qwenw_canvas(section: str, value: dict, expected_revision: int) -> dict:
+    """Update one shared project section with optimistic concurrency. Does not verify architecture or approve/send emails.
+    Sections: sales_insights, research_metrics, architectural_blueprint, design_tokens, engineering_manifest.
+    Read the current revision with gerald_qwenw_state first. Architecture/design edits invalidate human verification.
+    """
+    return await request('PUT', '/packs/qwenw/canvas', {'section': section, 'value': value, 'expected_revision': expected_revision})
 
 if __name__ == '__main__':
     mcp.run(transport='stdio')

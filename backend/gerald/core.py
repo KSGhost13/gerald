@@ -8,6 +8,7 @@ from .models import AgentSpec
 from .storage import Storage
 from .providers import generate
 from .session import SessionBrain
+from .qwenw import QwenPack
 
 class BaseAgent:
     def __init__(self, ident, spec):
@@ -47,6 +48,7 @@ class Orchestrator:
                 job.update(status='interrupted', pending=0)
         self.watchdog = None
         self.session = SessionBrain(self)
+        self.qwenw = QwenPack(self)
 
     def persist(self):
         self.storage.set('agents', {k: a.spec.model_dump() for k, a in self.agents.items()})
@@ -251,6 +253,7 @@ class Orchestrator:
 
     async def execute(self, agent, item):
         job, prompt = item['job'], item['prompt']
+        prepared_spec, qwen_digest = self.qwenw.prepare(agent, prompt)
         targets = [e['target'] for e in self.edges if e['source'] == agent.id]
         if agent.id == 'gerald' and targets:
             prompt += '\nAvailable directly connected workers:\n' + json.dumps([
@@ -260,16 +263,17 @@ class Orchestrator:
             await self.event('delta', text, agent.id, job_id=job['id'])
         await self.event('execution', f'{agent.spec.name} started', agent.id, job_id=job['id'])
         try:
-            result = await self.generate(agent.spec, prompt, emit, agent.metrics, self.mode)
+            result = await self.generate(prepared_spec, prompt, emit, agent.metrics, self.mode)
         except (asyncio.CancelledError, TimeoutError):
             raise
         except Exception:
             if self.mode != 'cloud' or agent.spec.provider not in ('codex', 'anthropic'):
                 raise
             await self.event('fallback', 'Cloud unavailable; switching this task to local Ollama', agent.id)
-            local = agent.spec.model_copy(update={'provider': 'ollama', 'model': LOCAL_MODEL})
+            local = prepared_spec.model_copy(update={'provider': 'ollama', 'model': LOCAL_MODEL})
             agent.output = ''
             result = await self.generate(local, prompt, emit, agent.metrics, 'local')
+        result = self.qwenw.accept(agent, result, job['id'], qwen_digest)
         # Resolve destinations at completion so live edge changes affect in-flight work.
         targets = [e['target'] for e in self.edges if e['source'] == agent.id]
         assignments = [(target, result) for target in targets]

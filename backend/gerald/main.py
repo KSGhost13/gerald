@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.staticfiles import StaticFiles
 from .config import ROOT
 from .core import Orchestrator
-from .models import AgentSpec, GraphUpdate, Goal, Mode, Position, SessionBinding, SessionClaim, SessionProgress, SessionResponse
+from .models import AgentSpec, GraphUpdate, Goal, Mode, Position, SessionBinding, SessionClaim, SessionProgress, SessionResponse, CanvasEdit, RevisionCheck
 from .providers import discover
 
 @asynccontextmanager
@@ -67,6 +67,8 @@ async def create(spec: AgentSpec):
 
 @app.put('/api/agents/{ident}')
 async def edit(ident: str, spec: AgentSpec):
+    if core().agents[ident].spec.qwen_profile != spec.qwen_profile:
+        raise ValueError('QwenW profile identity cannot be changed through agent configuration')
     if spec.provider == 'codex-session' and (ident != 'gerald' or not core().session.binding):
         raise ValueError('Bind a Codex chat to the master GERALD agent first')
     if ident == 'gerald' and core().session.binding and spec.provider != 'codex-session':
@@ -131,6 +133,26 @@ async def session_progress(ident: str, body: SessionProgress):
 @app.post('/api/session/requests/{ident}/respond')
 async def session_respond(ident: str, body: SessionResponse):
     return await core().session.respond(ident, body)
+
+@app.get('/api/packs/qwenw')
+async def qwenw_state():
+    return core().qwenw.snapshot()
+
+@app.post('/api/packs/qwenw/install')
+async def qwenw_install():
+    return await core().qwenw.install()
+
+@app.put('/api/packs/qwenw/canvas')
+async def qwenw_canvas(body: CanvasEdit):
+    return await core().qwenw.edit(body.section, body.value, body.expected_revision)
+
+@app.post('/api/packs/qwenw/verify')
+async def qwenw_verify(body: RevisionCheck):
+    return await core().qwenw.verify(body.expected_revision)
+
+@app.post('/api/packs/qwenw/drafts/{ident}/approve')
+async def qwenw_approve(ident: str, body: RevisionCheck):
+    return await core().qwenw.approve(ident, body.expected_revision)
 
 def telemetry():
     units = {}

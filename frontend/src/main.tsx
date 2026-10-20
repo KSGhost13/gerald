@@ -5,4 +5,5 @@ import '@xyflow/react/dist/style.css';
 import './style.css';
 import './session.css';
 import './readability.css';
+import './qwenw.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

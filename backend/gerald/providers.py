@@ -53,9 +53,37 @@ async def discover():
                 return {'url': url, 'online': True, 'models': [m['name'] for m in response.json()['models']]}
         except Exception as exc:
             return {'url': url, 'online': False, 'models': [], 'error': str(exc)}
+    auth = {'signed_in': False, 'method': 'unknown', 'message': 'Codex CLI not detected'}
+    catalog, catalog_date = [], None
+    if shutil.which('codex'):
+        proc = None
+        try:
+            proc = await asyncio.create_subprocess_exec(*executable('codex'), 'login', 'status',
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            out, err = await asyncio.wait_for(proc.communicate(), timeout=5)
+            text = (out + err).decode(errors='replace').lower()
+            signed_in = proc.returncode == 0 and 'logged in' in text
+            method = 'chatgpt' if signed_in and 'chatgpt' in text else 'api_key' if signed_in and 'api key' in text else 'unknown'
+            auth = {'signed_in': signed_in, 'method': method,
+                'message': 'Signed in with ChatGPT / Codex subscription' if method == 'chatgpt' else 'CLI credentials available' if signed_in else 'Run codex login in a terminal'}
+        except TimeoutError:
+            await kill_tree(proc)
+            auth['message'] = 'CLI sign-in check timed out; run codex login status'
+        except (OSError, RuntimeError):
+            auth['message'] = 'CLI sign-in check unavailable; run codex login status'
+        cache = Path(os.getenv('CODEX_HOME', str(Path.home() / '.codex'))) / 'models_cache.json'
+        try:
+            if cache.stat().st_size <= 2097152:
+                data = json.loads(cache.read_text(encoding='utf-8'))
+                catalog = [{'id': m['slug'], 'name': m.get('display_name', m['slug'])}
+                    for m in data.get('models', []) if m.get('visibility') == 'list' and isinstance(m.get('slug'), str)]
+                catalog_date = data.get('fetched_at')
+        except (OSError, ValueError, TypeError, KeyError):
+            pass
     return {'ollama': await asyncio.gather(*(probe(u) for u in OLLAMA_URLS)),
             'codex': bool(shutil.which('codex')), 'ollama_cli': bool(shutil.which('ollama')),
-            'anthropic': bool(os.getenv('ANTHROPIC_API_KEY')), 'local_model': LOCAL_MODEL, 'codex_local_model': CODEX_LOCAL_MODEL}
+            'anthropic': bool(os.getenv('ANTHROPIC_API_KEY')), 'local_model': LOCAL_MODEL, 'codex_local_model': CODEX_LOCAL_MODEL,
+            'codex_auth': auth, 'codex_models': catalog, 'codex_models_cached_at': catalog_date}
 
 async def generate(spec, prompt, emit, metrics, mode):
     if spec.provider == 'codex-session':
@@ -85,9 +113,11 @@ async def generate(spec, prompt, emit, metrics, mode):
             await emit(value)
 
     context = spec.directive
+    # Pack context is supplied by the validated adapter. Do not sweep its archive,
+    # customer drafts or unrelated workspace files into a model's system prompt.
     if 'system_metrics' in spec.tools:
         context += f'\nHost telemetry: CPU={psutil.cpu_percent()}%, RAM={psutil.virtual_memory().percent}%.'
-    if 'workspace_read' in spec.tools and provider not in ('codex', 'codex-ollama'):
+    if 'workspace_read' in spec.tools and not spec.qwen_profile and provider not in ('codex', 'codex-ollama'):
         files = []
         for path in sorted(WORKSPACE.rglob('*'))[:50]:
             if path.is_file() and not path.is_symlink() and path.stat().st_size < 16000:
@@ -135,13 +165,20 @@ async def generate(spec, prompt, emit, metrics, mode):
             args = executable('ollama') + ['run', model, '--hidethinking', '--nowordwrap', '--verbose']
         else:
             args = executable('codex') + ['exec', '--json', '--ephemeral', '--ignore-user-config', '--skip-git-repo-check',
-                    '--sandbox', 'workspace-write' if 'workspace_write' in spec.tools else 'read-only', '-C', str(WORKSPACE)]
+                    '--sandbox', 'workspace-write' if 'workspace_write' in spec.tools and not spec.qwen_profile else 'read-only', '-C', str(WORKSPACE)]
             if provider == 'codex-ollama':
                 args += ['--oss', '--local-provider', 'ollama', '-m', model,
                          '--disable', 'multi_agent', '--disable', 'browser_use', '--disable', 'in_app_browser',
                          '--disable', 'image_generation', '--disable', 'code_mode_host', '-c', 'web_search="disabled"']
             elif spec.model or CODEX_MODEL:
                 args += ['-m', spec.model or CODEX_MODEL]
+            if spec.qwen_profile:
+                # Pack tools are validated declarative proposals, not native tools.
+                # In particular, a worker must not call its own human-review API.
+                for feature in ('shell_tool', 'code_mode_host', 'browser_use', 'browser_use_external',
+                                'in_app_browser', 'image_generation', 'multi_agent', 'multi_agent_v2'):
+                    args += ['--disable', feature]
+                args += ['-c', 'web_search="disabled"']
             args += ['-']
         env = os.environ.copy()
         env['OLLAMA_HOST'] = server
@@ -227,7 +264,7 @@ async def generate(spec, prompt, emit, metrics, mode):
     result = ''.join(output)
     if not result.strip():
         raise RuntimeError('Provider returned no public answer')
-    if 'workspace_write' in spec.tools and provider not in ('codex', 'codex-ollama'):
+    if 'workspace_write' in spec.tools and not spec.qwen_profile and provider not in ('codex', 'codex-ollama'):
         artifact = WORKSPACE / f'answer-{time.time_ns()}.md'
         artifact.write_text(result, encoding='utf-8')
     return result

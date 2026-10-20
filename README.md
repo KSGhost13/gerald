@@ -10,6 +10,12 @@ The dashboard uses locally available Segoe UI/system fonts, 16px body text and f
 
 ## Repository contents
 
+### QwenW specialists and model selection
+
+The six QwenW profiles are now available through the **QwenW toolbox** (wrench icon), with a shared project canvas, coder architecture-review gate and draft-only outreach. GERALD remains the runtime; the QwenW prototype engine is not used. For installation, file locations, workflow and safeguards, see [QWENW.md](QWENW.md).
+
+Each worker's configuration now has a real **Model** dropdown: installed Ollama models for its selected server, or the locally cached Codex cloud catalogue. Select **Codex · Cloud sign-in**, choose a model, save, then enable **Cloud Apex mode** to use your CLI's existing ChatGPT/Codex subscription sign-in. Plan/workspace limits still apply; subscription access is not general-purpose API credit. GERALD reads `codex login status`, never copies authentication tokens. See [official authentication guidance](https://learn.chatgpt.com/docs/auth).
+
 The repository includes the complete backend, frontend source, dependency manifests and lockfiles, launcher scripts, tests, CI workflow, and verification reports. Installed dependencies (`.venv`, `node_modules`), compiled UI assets, runtime databases, agent workspace files, logs, and local environment files stay on the workstation and are ignored by Git. On another machine, run `scripts/setup.ps1` to install dependencies and build the dashboard, select an installed Ollama model, and run `scripts/connect-codex.ps1` to register that checkout's MCP bridge.
 
 ## Dependencies and prerequisites
@@ -268,7 +274,8 @@ gerald/
       core.py                     BaseAgent, Orchestrator, queues, graph and lifecycle
       session.py                  Durable current-chat inbox, claims and responses
       main.py                     REST API, WebSocket telemetry, compiled UI hosting
-      mcp_bridge.py               Seven stdio tools for Codex desktop and CLI
+      mcp_bridge.py               Thirteen stdio tools for Codex desktop and CLI
+      qwenw.py                    Profile import, scoped canvas, artifact and draft safeguards
   frontend/
     package.json / package-lock.json
     vite.config.ts                Local development API/WebSocket proxy
@@ -278,6 +285,8 @@ gerald/
       api.ts                      Typed data and API client
       App.tsx                     Matrix, worker forge, activity, missions, integrations
       SessionBrain.tsx            Existing-chat link and pending directive status
+      QwenLibrary.tsx             Imported profiles, shared canvas, human review and draft UI
+      ModelPicker.tsx             Per-agent Ollama/Codex model dropdown and custom IDs
       session.css                 Current-chat panel styles
       style.css                   Obsidian/cyan/amber HUD, responsive layouts
     dist/                         Built dashboard, ready to serve
@@ -291,11 +300,16 @@ gerald/
     verify-mcp.py                 Official MCP client protocol smoke test
     verify-workflow.py            Starter graph and real end-to-end mission test
     session-relay.py              Bind and operate this chat's inbox without an MCP reload
+    import-qwenw.py               Preserve a local source snapshot and install six profiles
+    verify-qwenw.py               Real Ollama/Codex subscription smoke test for the adapter
+  packs/qwenw/                    Portable reviewed profiles and their content hashes
   tests/
     test_core.py                  Routing, cycle rejection, controls and fallback tests
     test_api.py                   API validation, origin checks and WebSocket test
     test_processes.py             Actual CLI parent/child cleanup and local policy tests
     test_session.py               Session pickup, routing, idempotency, abort and recovery
+    test_qwenw.py                 Import, canvas scope, review gates, path safety and recovery
+    test_discovery.py             Safe CLI sign-in status and model catalogue filtering
   data/                           Created locally; ignored by Git
     gerald.sqlite3                Agent specs, graph, mode, missions and event journal
     workspace/                    Worker input files and generated artifacts

@@ -13,10 +13,10 @@ async def main():
             await session.initialize()
             listed = await session.list_tools()
             names = [tool.name for tool in listed.tools]
-            assert len(names) == 11, names
+            assert len(names) == 13, names
             result = await session.call_tool('gerald_state', {})
             assert not result.isError, result
-            print('MCP handshake verified. Eleven tools discovered; live dashboard state retrieved.')
+            print('MCP handshake verified. Thirteen tools discovered; live dashboard state retrieved.')
             print(', '.join(names))
 
 asyncio.run(main())

@@ -9,3 +9,5 @@
 *.css text eol=lf
 *.ps1 text eol=crlf
 *.png binary
+packs/qwenw/agents/*.md text eol=lf
+packs/qwenw/manifest.json text eol=lf

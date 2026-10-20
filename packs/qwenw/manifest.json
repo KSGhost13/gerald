@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "path": "agents/client_acquisitions.md",
+      "bytes": 845,
+      "sha256": "b33387a2bc6b7a4683a18c6ac472d0e07d88dfab84202b64b53b7c2edad3b1af"
+    },
+    {
+      "path": "agents/coder.md",
+      "bytes": 613,
+      "sha256": "b00218e764a64bc3b24f5a46d2a7287e1f2906ef8c713247627db98098181013"
+    },
+    {
+      "path": "agents/communicator.md",
+      "bytes": 260,
+      "sha256": "6dc7a55be86197dcdaa650c569a71c560e73d8284d678c70c52c68ceb8620f98"
+    },
+    {
+      "path": "agents/planner.md",
+      "bytes": 561,
+      "sha256": "a91bb55e53914733e53b7bf9334acb68cee604cd2426e4a4076c89b04faa46bd"
+    },
+    {
+      "path": "agents/researcher.md",
+      "bytes": 294,
+      "sha256": "5c7c783fbc12711f302a69a62fae5f5c927d27a79af029fe7b9bb19216765abd"
+    },
+    {
+      "path": "agents/ui_designer.md",
+      "bytes": 413,
+      "sha256": "9230f990c7f03006425b4e149f70da29365fcb3a9c6f048bcc10cd5d1a24bd51"
+    }
+  ]
+}
