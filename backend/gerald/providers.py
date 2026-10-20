@@ -58,6 +58,8 @@ async def discover():
             'anthropic': bool(os.getenv('ANTHROPIC_API_KEY')), 'local_model': LOCAL_MODEL, 'codex_local_model': CODEX_LOCAL_MODEL}
 
 async def generate(spec, prompt, emit, metrics, mode):
+    if spec.provider == 'codex-session':
+        raise ValueError('Current-session directives must use the session inbox, not a model subprocess')
     provider = spec.provider
     if mode == 'local' and provider in ('codex', 'anthropic'):
         provider = 'ollama'
@@ -213,9 +215,13 @@ async def generate(spec, prompt, emit, metrics, mode):
             else:
                 metrics['tps'] = round(metrics.get('tokens', 0) / max(time.monotonic() - started, .001), 2)
         finally:
-            if job_handle:
-                win32api.CloseHandle(job_handle)
-            await kill_tree(proc)
+            # Snapshot and reap descendants before closing the job. Closing it first can
+            # remove a Windows venv launcher before its early-spawned child is found.
+            try:
+                await kill_tree(proc)
+            finally:
+                if job_handle:
+                    win32api.CloseHandle(job_handle)
             await asyncio.gather(error_task, return_exceptions=True)
             metrics['pid'] = None
     result = ''.join(output)

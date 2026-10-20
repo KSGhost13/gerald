@@ -21,7 +21,7 @@ async def test_abort_reaps_cli_and_its_child(tmp_path, monkeypatch):
             await asyncio.sleep(.02)
     parent, child = metrics['pid'], int(marker.read_text())
     task.cancel()
-    await asyncio.gather(task, return_exceptions=True)
+    await asyncio.wait_for(asyncio.gather(task, return_exceptions=True), timeout=10)
     assert not psutil.pid_exists(parent)
     assert not psutil.pid_exists(child)
 

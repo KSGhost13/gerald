@@ -50,5 +50,30 @@ async def gerald_mode(mode: str) -> dict:
     """Set local or cloud execution mode for future tasks."""
     return await request('PUT', '/mode', {'mode': mode})
 
+@mcp.tool()
+async def gerald_session_inbox(thread_id: str) -> dict:
+    """Check directives for the bound existing Codex chat. Returns pending requests and updates last seen."""
+    from urllib.parse import quote
+    return await request('GET', '/session/inbox?thread_id=' + quote(thread_id, safe=''))
+
+@mcp.tool()
+async def gerald_session_claim(request_id: str, thread_id: str) -> dict:
+    """Claim one pending UI directive for this chat. Returns claim_token, goal, workers and current graph."""
+    return await request('POST', f'/session/requests/{request_id}/claim', {'thread_id': thread_id})
+
+@mcp.tool()
+async def gerald_session_progress(request_id: str, thread_id: str, claim_token: str, message: str) -> dict:
+    """Publish a public progress summary and renew the claim. Never send private reasoning."""
+    return await request('POST', f'/session/requests/{request_id}/progress',
+                         {'thread_id': thread_id, 'claim_token': claim_token, 'message': message})
+
+@mcp.tool()
+async def gerald_session_respond(request_id: str, thread_id: str, claim_token: str, response: str = '', tasks: list[dict[str, str]] | None = None, error: str = '') -> dict:
+    """Return this chat's public answer and optional explicit connected-worker assignments. Empty tasks means answer only.
+    Each assignment contains agent_id and task. Repeated delivery with the same claim token is idempotent.
+    """
+    return await request('POST', f'/session/requests/{request_id}/respond',
+                         {'thread_id': thread_id, 'claim_token': claim_token, 'response': response, 'tasks': tasks or [], 'error': error})
+
 if __name__ == '__main__':
     mcp.run(transport='stdio')

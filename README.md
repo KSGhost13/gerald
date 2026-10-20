@@ -262,6 +262,7 @@ gerald/
       storage.py                  SQLite state and bounded event journal
       providers.py                Ollama HTTP/CLI, Codex cloud/local, Anthropic
       core.py                     BaseAgent, Orchestrator, queues, graph and lifecycle
+      session.py                  Durable current-chat inbox, claims and responses
       main.py                     REST API, WebSocket telemetry, compiled UI hosting
       mcp_bridge.py               Seven stdio tools for Codex desktop and CLI
   frontend/
@@ -272,6 +273,8 @@ gerald/
       main.tsx                    React entry
       api.ts                      Typed data and API client
       App.tsx                     Matrix, worker forge, activity, missions, integrations
+      SessionBrain.tsx            Existing-chat link and pending directive status
+      session.css                 Current-chat panel styles
       style.css                   Obsidian/cyan/amber HUD, responsive layouts
     dist/                         Built dashboard, ready to serve
   scripts/
@@ -283,14 +286,17 @@ gerald/
     verify-live.py                Real provider connectivity/generation checks
     verify-mcp.py                 Official MCP client protocol smoke test
     verify-workflow.py            Starter graph and real end-to-end mission test
+    session-relay.py              Bind and operate this chat's inbox without an MCP reload
   tests/
     test_core.py                  Routing, cycle rejection, controls and fallback tests
     test_api.py                   API validation, origin checks and WebSocket test
     test_processes.py             Actual CLI parent/child cleanup and local policy tests
+    test_session.py               Session pickup, routing, idempotency, abort and recovery
   data/                           Created locally; ignored by Git
     gerald.sqlite3                Agent specs, graph, mode, missions and event journal
     workspace/                    Worker input files and generated artifacts
     server*.log / server.pid      Managed background server diagnostics
+  SESSION-BRAIN.md                 Heartbeat processing and existing-chat setup guide
 ```
 
 ## Use the dashboard
@@ -310,6 +316,7 @@ gerald/
 | Ollama CLI | `ollama run MODEL --hidethinking --nowordwrap --verbose` | None for local models |
 | Codex cloud | `codex exec --json --ephemeral` | Existing `codex login` ChatGPT session |
 | Codex local | `codex exec --oss --local-provider ollama --json` | None for local models |
+| Current Codex chat | Durable inbox → in-thread heartbeat → public response / worker assignments | Existing Codex chat and a configured heartbeat |
 | Anthropic | Streaming Messages API | Optional server-side `ANTHROPIC_API_KEY` |
 
 Your existing Ollama models remain installed. The HTTP default is `ornith-1.5:9b`. The tested Codex local default is `qwen2.5-coder:14b`; imported Ornith models failed Codex tool-schema generation during verification. The local Codex adapter disables browser/image/multi-agent tool families for compatibility with Ollama's tool schema parser. Its shell/file execution remains available under Codex's sandbox.
@@ -320,7 +327,7 @@ To add an Ollama server, copy `.env.example` to `.env`, edit `GERALD_OLLAMA_URLS
 
 ## Codex desktop and CLI integration
 
-The installed bridge uses Codex's shared MCP configuration. Run `scripts/connect-codex.ps1` if you move the project. Restart Codex after registration, keep GERALD running, then use these tools:
+The installed bridge uses Codex's shared MCP configuration. Run `scripts/connect-codex.ps1` if you move the project. Restart Codex after registration or an MCP tool update, keep GERALD running, then use these tools:
 
 | Tool | Purpose |
 | --- | --- |
@@ -331,6 +338,20 @@ The installed bridge uses Codex's shared MCP configuration. Run `scripts/connect
 | `gerald_control` | Pause, resume, abort or delete a worker |
 | `gerald_route` | Replace graph edges atomically |
 | `gerald_mode` | Toggle local/cloud execution |
+| `gerald_session_inbox` | Check UI directives addressed to the bound existing chat |
+| `gerald_session_claim` | Claim a directive and read worker/routing context |
+| `gerald_session_progress` | Publish public progress and renew the claim |
+| `gerald_session_respond` | Return this chat's answer and optional worker assignments |
+
+### Make your existing Codex chat the main brain
+
+Ask Codex in the chat you want to use: “Bind this chat as GERALD's main brain and enable a heartbeat to process dashboard directives using SESSION-BRAIN.md.” This is separate from the `codex` provider, which starts a fresh CLI model process. The `codex-session` provider is reserved for GERALD itself and sends directives to the existing chat's durable inbox.
+
+Once linked, the dashboard shows **CODEX SESSION / MAIN BRAIN** with that chat's title and ID. Select **G.E.R.A.L.D.** as the command target and enter a directive. The linked chat picks it up, can use its conversation history and tools, and posts its answer back to the output panel. It can answer directly or explicitly assign work to connected workers. Workers continue using their configured Ollama/cloud brains.
+
+Automatic pickup uses an in-thread Codex heartbeat, approximately every minute while Codex is running and the chat can take a turn. It is **not instantaneous**; an active turn, approval or sleeping app can delay pickup. A manual Link chat action records the destination but does not create a heartbeat. The existing chat can use `scripts/session-relay.py` immediately; newly added MCP tools require Codex to reload the bridge. See [SESSION-BRAIN.md](SESSION-BRAIN.md) for setup, the complete processing protocol, and recovery behavior.
+
+**Pause** holds pickup, **Abort** cancels queued/claimed directives, and **Use model brain** restores the previous master brain. Abort rejects late responses but cannot forcibly interrupt this independent Codex chat or undo actions already performed. The local/cloud toggle controls worker providers; the linked chat uses Codex's own selected model/network settings. To stop automatic inbox checks as well, pause or remove the chat's heartbeat in Codex.
 
 Example instruction in a new Codex chat: “Use GERALD to inspect the agents, give ATLAS a short planning task, and report the resulting job status.” The bridge exposes the same local runtime to desktop and CLI; it does not scrape or modify unrelated desktop chats. Worker Codex subprocesses ignore the global user configuration to prevent recursive GERALD MCP invocation and accidental inheritance of unrelated plugins.
 

@@ -7,6 +7,7 @@ from .config import LOCAL_MODEL, TIMEOUT
 from .models import AgentSpec
 from .storage import Storage
 from .providers import generate
+from .session import SessionBrain
 
 class BaseAgent:
     def __init__(self, ident, spec):
@@ -45,6 +46,7 @@ class Orchestrator:
             if job['status'] == 'running':
                 job.update(status='interrupted', pending=0)
         self.watchdog = None
+        self.session = SessionBrain(self)
 
     def persist(self):
         self.storage.set('agents', {k: a.spec.model_dump() for k, a in self.agents.items()})
@@ -62,8 +64,15 @@ class Orchestrator:
             queue.put_nowait(event)
 
     def snapshot(self):
-        return {'mode': self.mode, 'agents': [a.view() for a in self.agents.values()], 'edges': self.edges,
-                'events': list(self.events)[-100:], 'jobs': list(self.jobs)}
+        agents = [a.view() for a in self.agents.values()]
+        if self.session.binding and self.agents['gerald'].spec.provider == 'codex-session' and self.agents['gerald'].gate.is_set():
+            master = next(a for a in agents if a['id'] == 'gerald')
+            pending = self.session.snapshot()['pending']
+            master['status'] = 'session_working' if any(r['status'] == 'claimed' for r in pending) else 'awaiting_session' if pending else 'idle'
+            master['queued'] = len(pending)
+            master['metrics']['effective_provider'] = 'codex-session'
+        return {'mode': self.mode, 'agents': agents, 'edges': self.edges,
+                'events': list(self.events)[-100:], 'jobs': list(self.jobs), 'session': self.session.snapshot()}
 
     async def start(self):
         for agent in self.agents.values():
@@ -101,6 +110,8 @@ class Orchestrator:
         self.storage.db.close()
 
     async def create(self, spec):
+        if spec.provider == 'codex-session':
+            raise ValueError('The current Codex session is reserved for the master GERALD agent')
         if len(self.agents) >= 24:
             raise ValueError('Maximum 24 agents')
         ident = uuid.uuid4().hex[:12]
@@ -144,6 +155,8 @@ class Orchestrator:
             agent.status = 'running' if agent.current else 'idle'
         elif action == 'abort':
             agent.gate.clear()
+            if ident == 'gerald':
+                await self.session.cancel_all('Directive aborted from the dashboard')
             if agent.current:
                 agent.current.cancel()
                 await asyncio.gather(agent.current, return_exceptions=True)
@@ -185,10 +198,17 @@ class Orchestrator:
         if ident not in self.agents:
             raise ValueError('Agent not found')
         job = {'id': uuid.uuid4().hex[:12], 'goal': prompt, 'status': 'running', 'pending': 0, 'errors': 0, 'time': time.time()}
-        await self.enqueue(ident, prompt, job)
+        if ident == 'gerald' and self.agents[ident].spec.provider == 'codex-session':
+            if self.agents[ident].status == 'aborted':
+                raise ValueError('GERALD is aborted; resume before submitting a directive')
+            self.session.add(prompt, job)
+        else:
+            await self.enqueue(ident, prompt, job)
         self.jobs.append(job)
         self.storage.set('jobs', list(self.jobs))
         await self.event('mission', prompt, ident, job_id=job['id'])
+        if job['status'] == 'awaiting_session':
+            await self.event('session', 'Directive queued for the linked Codex chat; awaiting heartbeat pickup', job_id=job['id'])
         return job
 
     async def loop(self, agent):

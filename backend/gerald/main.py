@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.staticfiles import StaticFiles
 from .config import ROOT
 from .core import Orchestrator
-from .models import AgentSpec, GraphUpdate, Goal, Mode, Position
+from .models import AgentSpec, GraphUpdate, Goal, Mode, Position, SessionBinding, SessionClaim, SessionProgress, SessionResponse
 from .providers import discover
 
 @asynccontextmanager
@@ -67,6 +67,12 @@ async def create(spec: AgentSpec):
 
 @app.put('/api/agents/{ident}')
 async def edit(ident: str, spec: AgentSpec):
+    if spec.provider == 'codex-session' and (ident != 'gerald' or not core().session.binding):
+        raise ValueError('Bind a Codex chat to the master GERALD agent first')
+    if ident == 'gerald' and core().session.binding and spec.provider != 'codex-session':
+        raise ValueError('Use the session panel to disconnect this chat before switching the master brain')
+    if ident == 'gerald' and core().session.snapshot()['pending'] and spec.provider != 'codex-session':
+        raise ValueError('Finish or abort session directives before switching the master brain')
     core().agents[ident].spec = spec
     core().persist()
     return core().agents[ident].view()
@@ -97,6 +103,34 @@ async def mode(body: Mode):
     core().persist()
     await core().event('mode', f'{body.mode.upper()} execution enabled; applies to the next task')
     return {'mode': core().mode}
+
+@app.get('/api/session')
+async def session_state():
+    return core().session.snapshot()
+
+@app.put('/api/session')
+async def session_bind(body: SessionBinding):
+    return await core().session.bind(body)
+
+@app.delete('/api/session')
+async def session_disconnect():
+    return await core().session.disconnect()
+
+@app.get('/api/session/inbox')
+async def session_inbox(thread_id: str):
+    return core().session.inbox(thread_id)
+
+@app.post('/api/session/requests/{ident}/claim')
+async def session_claim(ident: str, body: SessionClaim):
+    return await core().session.claim(ident, body)
+
+@app.post('/api/session/requests/{ident}/progress')
+async def session_progress(ident: str, body: SessionProgress):
+    return await core().session.progress(ident, body)
+
+@app.post('/api/session/requests/{ident}/respond')
+async def session_respond(ident: str, body: SessionResponse):
+    return await core().session.respond(ident, body)
 
 def telemetry():
     units = {}

@@ -1,0 +1,14 @@
+import {useState} from 'react';
+import {BrainCircuit,Link2,Unplug,Clock3,MessagesSquare} from 'lucide-react';
+import {api,type SessionState} from './api';
+
+export default function SessionBrain({session,refresh}:{session?:SessionState;refresh:()=>Promise<void>}){
+ const [thread,setThread]=useState('');const [title,setTitle]=useState('Current Codex chat');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
+ const binding=session?.binding;const pending=session?.pending||[];
+ async function change(disconnect=false){setBusy(true);setError('');try{await api('/session',disconnect?'DELETE':'PUT',disconnect?undefined:{thread_id:thread,title});await refresh()}catch(e){setError(e instanceof Error?e.message:String(e))}finally{setBusy(false)}}
+ return <section className={'panel session-brain '+(binding?'bound':'')} aria-label="Current Codex session brain">
+  <div className="panel-header"><h2><BrainCircuit size={16}/> CODEX SESSION / MAIN BRAIN</h2><span className="tag">{binding?(session?.paused?'PAUSED':pending.some(r=>r.status==='claimed')?'PROCESSING':pending.length?'AWAITING PICKUP':'LINKED'):'MODEL BRAIN'}</span></div>
+  {binding?<><div className="session-info"><div><strong><MessagesSquare size={16}/>{binding.title}</strong><code>{binding.thread_id}</code><p>UI directives to G.E.R.A.L.D. are handled by this existing chat. This chat uses Codex’s selected model; the local/cloud toggle controls worker providers.</p></div><button onClick={()=>void change(true)} disabled={busy} className="session-disconnect"><Unplug size={14}/> Use model brain</button></div><div className="session-timing"><Clock3 size={13}/><span>{binding.automation_id?`Heartbeat pickup about every ${binding.poll_seconds} seconds while Codex is running; not instant.`:'No heartbeat registered in this binding. Pick up directives manually from the linked chat.'}</span><span>{binding.last_seen?`Last check ${new Date(binding.last_seen*1000).toLocaleTimeString()}`:'Waiting for first chat check'}</span></div>{pending.map(r=><div key={r.id} className="session-request"><span className={'job-state '+r.status}>{r.status==='claimed'?'CHAT WORKING':'QUEUED FOR CHAT'}</span><code>{r.id}</code><p>{r.prompt}</p>{r.progress&&<small>{r.progress}</small>}</div>)}</>:<form className="session-bind" onSubmit={e=>{e.preventDefault();void change()}}><p>Bind GERALD to an existing Codex chat. This records the destination; automatic pickup also requires a Codex heartbeat configured in that chat.</p><input aria-label="Codex chat ID" required value={thread} onChange={e=>setThread(e.target.value)} placeholder="Existing Codex chat ID" maxLength={160}/><input aria-label="Codex chat title" required value={title} onChange={e=>setTitle(e.target.value)} maxLength={160}/><button className="primary" disabled={busy}><Link2 size={14}/> Link chat</button></form>}
+  {error&&<p role="alert" className="error-text session-error">{error}</p>}
+ </section>
+}
