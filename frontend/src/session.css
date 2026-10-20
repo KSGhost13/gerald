@@ -1,1 +1,26 @@
-.session-brain{margin-bottom:22px;border-color:#34515b}.session-brain.bound{background:linear-gradient(110deg,#11212c,#0e151e);border-color:#356373}.session-info{padding:17px 19px;display:flex;align-items:center;justify-content:space-between;gap:15px}.session-info strong{display:flex;align-items:center;gap:9px;font-size:13px;color:#ade4e4;font-weight:500}.session-info code{display:block;font-size:9px;color:#679da8;margin-top:7px;overflow-wrap:anywhere}.session-info p,.session-bind p{font-size:10px;line-height:1.7;color:#839fa9;margin-top:9px}.session-disconnect{white-space:nowrap;border:1px solid #3c5358;padding:9px 12px;border-radius:4px;font-size:9px;color:#99b4bd}.session-timing{border-top:1px solid #263c47;display:flex;gap:8px;align-items:center;padding:10px 19px;font-size:8px;color:#8eabb3}.session-timing span:last-child{margin-left:auto;white-space:nowrap;color:#72aeb2}.session-request{margin:0 18px 13px;padding:13px;border:1px solid #304955;background:#101b25;border-radius:5px}.session-request code{font-size:8px;color:#63858d}.session-request p{font-size:12px;line-height:1.6;margin-top:12px;color:#c4dce2;white-space:pre-wrap;max-height:100px;overflow:auto}.session-request small{display:block;font-size:10px;color:#88c6bd;margin-top:7px}.session-bind{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 19px}.session-bind p{flex-basis:100%;margin:0}.session-bind input{background:#0b141c;border:1px solid #304c59;padding:9px;color:#b8d2dc;border-radius:4px;flex:1;min-width:170px;font-size:10px}.session-error{padding:0 19px 15px}.status-dot.awaiting_session{background:#dfb36b}.status-dot.session_working{background:#79d9f2;animation:blink 1.5s infinite}.job-state.awaiting_session,.job-state.pending{color:#e0c28c;border-color:#675537}.job-state.claimed{color:#97daee;border-color:#365f74}@media(max-width:650px){.session-info{flex-direction:column;align-items:flex-start}.session-timing{flex-wrap:wrap}.session-timing span:last-child{margin-left:20px}.session-bind input{min-width:100%}}
+.session-brain{margin-bottom:22px;border-color:#34515b}
+.session-brain.bound{background:linear-gradient(110deg,#11212c,#0e151e);border-color:#356373}
+.session-info{padding:17px 19px;display:flex;align-items:center;justify-content:space-between;gap:15px}
+.session-info strong{display:flex;align-items:center;gap:9px;font-size:1.125rem;color:#ade4e4;font-weight:500}
+.session-info code{display:block;font-size:.875rem;color:#679da8;margin-top:7px;overflow-wrap:anywhere}
+.session-info p,.session-bind p{font-size:.9375rem;line-height:1.7;color:#839fa9;margin-top:9px}
+.session-disconnect{white-space:nowrap;border:1px solid #3c5358;padding:9px 12px;border-radius:4px;font-size:.875rem;color:#99b4bd}
+.session-timing{border-top:1px solid #263c47;display:flex;gap:8px;align-items:center;padding:10px 19px;font-size:.875rem;color:#8eabb3}
+.session-timing span:last-child{margin-left:auto;white-space:nowrap;color:#72aeb2}
+.session-request{margin:0 18px 13px;padding:13px;border:1px solid #304955;background:#101b25;border-radius:5px}
+.session-request code{font-size:.875rem;color:#63858d}
+.session-request p{font-size:1rem;line-height:1.6;margin-top:12px;color:#c4dce2;white-space:pre-wrap;max-height:100px;overflow:auto}
+.session-request small{display:block;font-size:.9375rem;color:#88c6bd;margin-top:7px}
+.session-bind{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 19px}
+.session-bind p{flex-basis:100%;margin:0}
+.session-bind input{background:#0b141c;border:1px solid #304c59;padding:9px;color:#b8d2dc;border-radius:4px;flex:1;min-width:170px;font-size:.9375rem}
+.session-error{padding:0 19px 15px}
+.status-dot.awaiting_session{background:#dfb36b}
+.status-dot.session_working{background:#79d9f2;animation:blink 1.5s infinite}
+.job-state.awaiting_session,.job-state.pending{color:#e0c28c;border-color:#675537}
+.job-state.claimed{color:#97daee;border-color:#365f74}
+@media(max-width:650px){.session-info{flex-direction:column;align-items:flex-start}
+.session-timing{flex-wrap:wrap}
+.session-timing span:last-child{margin-left:20px}
+.session-bind input{min-width:100%}
+}

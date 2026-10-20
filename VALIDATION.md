@@ -1,5 +1,13 @@
 # Verified on this machine
 
+## Readability update — October 20, 2026
+
+- TypeScript check and production build passed; all 15 backend regression tests passed.
+- Browser inspection at 1440×1000 and 390×844 confirmed 16px body/form typography, 48–50px command controls, and 44px agent action targets. Neither viewport had horizontal page overflow.
+- Agent configuration dialog inspected at both widths: 16px inputs, wrapping single-column fields on narrow windows, and internal scrolling for long forms. No agent configuration or session binding was changed.
+- Graph labels are enlarged and initial automatic fit is bounded to 85% zoom rather than shrinking the graph arbitrarily. Users can still pan and adjust zoom.
+- These are targeted readability/layout checks, not a complete WCAG audit or performance benchmark.
+
 - Python backend: 15 automated tests pass, covering routing, lifecycle controls, cloud fallback, API/WebSocket behavior, local-only policy, parent/child process termination, persisted recovery, and the six existing-chat integration cases described below.
 - TypeScript check and Vite production build pass.
 - Final npm audit reports zero known vulnerabilities.

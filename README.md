@@ -4,6 +4,10 @@ Global Execution, Routing, and Agent Lifecycle Director. A locally hosted workfl
 
 ![G.E.R.A.L.D. dashboard](dashboard.png)
 
+## Dashboard readability
+
+The dashboard uses locally available Segoe UI/system fonts, 16px body text and form controls, and 13–15px metadata at default browser settings. Typography uses relative units so browser text preferences and zoom remain effective. Buttons have at least 44px targets, panels reflow on narrow windows, and the topology starts at a readable zoom with pan/zoom controls. No external font downloads are required. After pulling a UI update, run `npm run build` in `frontend` (or rerun `scripts/setup.ps1`) and reload the dashboard to load the new assets.
+
 ## Repository contents
 
 The repository includes the complete backend, frontend source, dependency manifests and lockfiles, launcher scripts, tests, CI workflow, and verification reports. Installed dependencies (`.venv`, `node_modules`), compiled UI assets, runtime databases, agent workspace files, logs, and local environment files stay on the workstation and are ignored by Git. On another machine, run `scripts/setup.ps1` to install dependencies and build the dashboard, select an installed Ollama model, and run `scripts/connect-codex.ps1` to register that checkout's MCP bridge.
