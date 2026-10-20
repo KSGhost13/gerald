@@ -69,6 +69,20 @@ async def test_import_rejects_changed_hash_before_creating_any_agents(pack_files
 
 
 @pytest.mark.asyncio
+async def test_bundled_profiles_install_on_clean_checkout(tmp_path, monkeypatch):
+    monkeypatch.setattr(qwenw, 'PACK', tmp_path / 'no-local-snapshot')
+    monkeypatch.setattr(qwenw, 'WORKSPACE', tmp_path / 'workspace')
+    c = Orchestrator(Storage(':memory:'))
+    try:
+        result = await c.qwenw.install()
+        assert result['created'] == 6
+        assert len(result['files']) == 6
+        assert all('Desktop' not in a.spec.directive for a in c.agents.values())
+    finally:
+        await c.close()
+
+
+@pytest.mark.asyncio
 async def test_profile_writes_scoped_canvas_and_coder_gate_enforced_before_generation(pack_files):
     calls = []
     async def generate(spec, prompt, emit, metrics, mode):

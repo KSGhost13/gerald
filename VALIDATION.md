@@ -2,7 +2,7 @@
 
 ## QwenW and per-agent model selection — October 20, 2026
 
-- Final expanded backend suite: **32 passed**. TypeScript and Vite production build passed. Final narrow-window toolbox inspection at 390×844 confirmed 16px canvas input text and no horizontal page overflow.
+- Final expanded backend suite: **33 passed**, including clean-checkout installation of bundled profiles. TypeScript and Vite production build passed. Final narrow-window toolbox inspection at 390×844 confirmed 16px canvas input text and no horizontal page overflow.
 - Installed all six original profiles without running the prototype engine, changing the master/session configuration, or replacing existing agents/routes. All ten source files were hash-preserved in ignored local storage; six portable profiles are bundled separately.
 - Model dropdown inspected in the browser: installed Ollama tags and seven visible cached Codex choices appeared, and a specific cloud model survived Save configuration and reopening the form. Codex CLI reports ChatGPT sign-in; no credentials are read/exposed by discovery.
 - Real imported Communicator tasks completed through Ollama HTTP (`ornith-1.5:9b`) and Codex CLI cloud (`gpt-6.1-sol`), with effective providers verified and no canvas edits or external messages. Results stay in ignored `data/qwenw-verification.json`. Other combinations/catalogue entries are not all live-tested.
