@@ -4,7 +4,7 @@ import time
 import uuid
 from collections import deque
 from .config import LOCAL_MODEL, TIMEOUT
-from .models import AgentSpec
+from .models import AgentSpec, MasterPlan
 from .storage import Storage
 from .providers import generate
 from .session import SessionBrain
@@ -256,6 +256,8 @@ class Orchestrator:
         prepared_spec, qwen_digest = self.qwenw.prepare(agent, prompt)
         targets = [e['target'] for e in self.edges if e['source'] == agent.id]
         if agent.id == 'gerald' and targets:
+            prepared_spec = prepared_spec.model_copy(deep=True)
+            prepared_spec._output_schema = MasterPlan.model_json_schema()
             prompt += '\nAvailable directly connected workers:\n' + json.dumps([
                 {'agent_id': t, 'name': self.agents[t].spec.name, 'role': self.agents[t].spec.role} for t in targets])
         async def emit(text):
@@ -279,18 +281,23 @@ class Orchestrator:
         assignments = [(target, result) for target in targets]
         if agent.id == 'gerald' and targets:
             try:
-                plan = json.loads(result.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip())
-                assignments = [(task['agent_id'], task['task']) for task in plan['tasks'][:8]
-                               if task['agent_id'] in targets and isinstance(task['task'], str)]
-                if not assignments:
-                    raise ValueError('No valid assignments')
-            except (ValueError, KeyError, TypeError):
-                assignments = [(target, item['prompt']) for target in targets]
-                await self.event('planning', 'Structured plan unavailable; dispatching goal to connected workers', agent.id)
+                plan = MasterPlan.model_validate(json.loads(result.strip().removeprefix('```json').removeprefix('```').removesuffix('```').strip()))
+                assignments = [(task.agent_id, task.task) for task in plan.tasks]
+                if len({target for target, _ in assignments}) != len(assignments):
+                    raise ValueError('Duplicate assignment')
+                if any(target not in targets or not task.strip() for target, task in assignments):
+                    raise ValueError('Disconnected worker or empty task')
+            except (ValueError, KeyError, TypeError) as exc:
+                raise ValueError('Invalid orchestrator plan; no workers dispatched') from exc
+        # Preflight the whole batch before any enqueue. Never partly dispatch a plan.
+        assignments = [(target, task) for target, task in assignments if target not in item['visited']]
+        for target, _ in assignments:
+            worker = self.agents[target]
+            if worker.status == 'aborted' or worker.queue.full() or not worker.gate.is_set():
+                raise ValueError(f'{worker.spec.name} is unavailable; no workers dispatched')
         for target, task in assignments:
-            if target in item['visited']:
-                continue
             await self.enqueue(target, task, job, (*item['visited'], agent.id))
+        for target, _ in assignments:
             await self.event('packet', f'Routed to {self.agents[target].spec.name}', agent.id, target=target, job_id=job['id'])
         await self.event('result', result, agent.id, job_id=job['id'])
         agent.output = result

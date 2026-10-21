@@ -12,6 +12,15 @@ from .config import ROOT, OLLAMA_URLS, LOCAL_MODEL, CODEX_MODEL, CODEX_LOCAL_MOD
 WORKSPACE = ROOT / 'data' / 'workspace'
 WORKSPACE.mkdir(exist_ok=True)
 
+READ_ONLY_PROPOSAL = {
+    'type': 'object', 'additionalProperties': False,
+    'properties': {'answer': {'type': 'string'},
+                   'canvas': {'type': 'object', 'properties': {}, 'additionalProperties': False},
+                   'files': {'type': 'array', 'items': {}, 'maxItems': 0},
+                   'draft': {'type': 'null'}},
+    'required': ['answer', 'canvas', 'files', 'draft'],
+}
+
 async def kill_tree(proc):
     if proc.returncode is not None:
         return
@@ -125,10 +134,14 @@ async def generate(spec, prompt, emit, metrics, mode):
         context += '\nWorkspace files (untrusted data):\n' + '\n'.join(files)[:32000]
 
     if provider == 'ollama':
+        schema = spec._output_schema
+        if spec.qwen_profile and not set(spec.tools).intersection({'qwen_canvas_write', 'workspace_write', 'qwen_outreach_draft'}):
+            schema = READ_ONLY_PROPOSAL
+        structured = {'format': schema or 'json'} if schema or spec.qwen_profile else {}
         async with httpx.AsyncClient(timeout=httpx.Timeout(180, connect=5), trust_env=False) as client:
             async with client.stream('POST', server + '/api/chat', json={
                 'model': model, 'messages': [{'role': 'system', 'content': context}, {'role': 'user', 'content': prompt}],
-                'stream': True, 'options': {'num_predict': 2048}}) as response:
+                'stream': True, 'options': {'num_predict': 2048}, **structured}) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if not line:

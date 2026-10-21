@@ -84,7 +84,7 @@ async def test_orchestrator_dispatches_only_connected_worker():
     calls = []
     async def generate(spec,prompt,emit,metrics,mode):
         calls.append(spec.name)
-        return json.dumps({'tasks':[{'agent_id': worker['id'], 'task':'write report'},{'agent_id':'unknown','task':'bad'}]}) if spec.name=='G.E.R.A.L.D.' else 'report'
+        return json.dumps({'tasks':[{'agent_id': worker['id'], 'task':'write report'}]}) if spec.name=='G.E.R.A.L.D.' else 'report'
     c = Orchestrator(Storage(':memory:'), generate)
     await c.start()
     try:
@@ -131,5 +131,51 @@ async def test_cloud_failure_falls_back_to_local():
         await completed(job)
         assert calls==[('codex','cloud'),('ollama','local')]
         assert job['status']=='completed'
+    finally:
+        await c.close()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('kind', ['invalid_json', 'disconnected', 'duplicate', 'empty_task', 'wrong_type', 'too_many', 'paused', 'aborted', 'queue_full', 'summary'])
+async def test_master_plans_fail_closed_without_partial_dispatch(kind):
+    calls = []
+    async def generate(spec, *args):
+        calls.append(spec.name)
+        if spec.name != 'G.E.R.A.L.D.':
+            return 'unexpected'
+        task = {'agent_id': worker['id'], 'task': 'prepare report'}
+        plans = {
+            'invalid_json': 'not json',
+            'disconnected': {'tasks': [task, {'agent_id': 'unknown', 'task': 'bad'}]},
+            'duplicate': {'tasks': [task, task]},
+            'empty_task': {'tasks': [{**task, 'task': '   '}]},
+            'wrong_type': {'tasks': [{**task, 'task': 42}]},
+            'too_many': {'tasks': [task] * 9},
+            'paused': {'tasks': [task, {'agent_id': blocked['id'], 'task': 'held'}]},
+            'aborted': {'tasks': [task, {'agent_id': blocked['id'], 'task': 'held'}]},
+            'queue_full': {'tasks': [task, {'agent_id': blocked['id'], 'task': 'held'}]},
+            'summary': {'summary': 'Internal review complete; awaiting owner approval.', 'tasks': []},
+        }
+        result = plans[kind]
+        return result if isinstance(result, str) else json.dumps(result)
+    c = Orchestrator(Storage(':memory:'), generate)
+    await c.start()
+    try:
+        worker = await c.create(AgentSpec(name='Writer'))
+        blocked = await c.create(AgentSpec(name='Held'))
+        if kind == 'paused':
+            await c.control(blocked['id'], 'pause')
+        if kind == 'aborted':
+            await c.control(blocked['id'], 'abort')
+        if kind == 'queue_full':
+            # Keep the worker from consuming a synthetic full queue during preflight.
+            c.agents[blocked['id']].task.cancel()
+            await asyncio.gather(c.agents[blocked['id']].task, return_exceptions=True)
+            for _ in range(16):
+                c.agents[blocked['id']].queue.put_nowait({})
+        job = await c.submit('gerald', 'Plan, not uncontrolled fan-out')
+        await completed(job)
+        assert calls == ['G.E.R.A.L.D.']
+        assert c.agents[worker['id']].queue.empty()
+        assert job['status'] == ('completed' if kind == 'summary' else 'failed')
     finally:
         await c.close()

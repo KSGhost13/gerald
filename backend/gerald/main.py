@@ -11,6 +11,7 @@ from .config import ROOT
 from .core import Orchestrator
 from .models import AgentSpec, GraphUpdate, Goal, Mode, Position, SessionBinding, SessionClaim, SessionProgress, SessionResponse, CanvasEdit, RevisionCheck
 from .providers import discover
+from .business import launch_snapshot, document_path
 
 @asynccontextmanager
 async def lifespan(app):
@@ -60,6 +61,15 @@ async def state():
 @app.get('/api/integrations')
 async def integrations():
     return await discover()
+
+@app.get('/api/business')
+async def business():
+    return launch_snapshot()
+
+@app.get('/api/business/documents/{name}')
+async def business_document(name: str):
+    from fastapi.responses import FileResponse
+    return FileResponse(document_path(name), media_type='text/plain', filename=name)
 
 @app.post('/api/agents')
 async def create(spec: AgentSpec):

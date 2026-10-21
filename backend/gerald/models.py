@@ -1,9 +1,11 @@
 from typing import Literal
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 Provider = Literal['ollama', 'ollama-cli', 'codex', 'codex-ollama', 'anthropic', 'codex-session']
 
 class AgentSpec(BaseModel):
+    # Execution-only provider hint, never accepted from API data or persisted.
+    _output_schema: dict | None = PrivateAttr(default=None)
     name: str = Field(min_length=1, max_length=80)
     role: str = Field(default='Worker', max_length=120)
     directive: str = Field(default='Complete the assigned task accurately. Provide a concise result.', max_length=16000)
@@ -41,6 +43,16 @@ class GraphUpdate(BaseModel):
 class Goal(BaseModel):
     prompt: str = Field(min_length=1, max_length=32000)
     agent_id: str = 'gerald'
+
+class PlanAssignment(BaseModel):
+    model_config = {'extra': 'forbid', 'strict': True}
+    agent_id: str = Field(min_length=1, max_length=160)
+    task: str = Field(min_length=1, max_length=32000)
+
+class MasterPlan(BaseModel):
+    model_config = {'extra': 'forbid', 'strict': True}
+    tasks: list[PlanAssignment] = Field(max_length=8)
+    summary: str = Field(default='', max_length=16000)
 
 class Mode(BaseModel):
     mode: Literal['local', 'cloud']

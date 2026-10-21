@@ -1,0 +1,10 @@
+.business-desk {padding-bottom:1.5rem;overflow-wrap:anywhere}
+.business-desk>h2,.business-desk>h3,.business-desk>p,.business-desk>ol,.business-documents {margin:1.25rem 1.5rem}
+.business-desk p,.business-desk li {font-size:1rem;line-height:1.65;color:#bed1d6}
+.business-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:1rem;margin:1.5rem}
+.business-grid article {padding:1.25rem;border:1px solid #28434b;border-radius:.75rem;background:#102128}
+.business-desk h3 {font-size:1.125rem;color:#e3f1f2}
+.business-desk a {color:#79f0df;text-decoration:underline;text-underline-offset:4px}
+.business-desk a:focus-visible {outline:2px solid #ffbe55;outline-offset:4px}
+.business-documents {display:flex;flex-wrap:wrap;gap:.75rem}
+.business-documents a {display:inline-flex;align-items:center;min-height:44px;padding:.5rem .8rem;border:1px solid #34515a;border-radius:.4rem}
