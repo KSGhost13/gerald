@@ -12,7 +12,7 @@ class AgentSpec(BaseModel):
     provider: Provider = 'ollama'
     model: str = Field(default='', max_length=160)
     server: str = ''
-    tools: list[Literal['workspace_read', 'workspace_write', 'system_metrics', 'qwen_canvas_read', 'qwen_canvas_write', 'qwen_outreach_draft']] = Field(default_factory=list, max_length=6)
+    tools: list[Literal['workspace_read', 'workspace_write', 'system_metrics', 'business_docs_read', 'qwen_canvas_read', 'qwen_canvas_write', 'qwen_outreach_draft']] = Field(default_factory=list, max_length=6)
     qwen_profile: Literal['', 'client_acquisitions', 'coder', 'communicator', 'planner', 'researcher', 'ui_designer'] = ''
     x: float = 450
     y: float = 200

@@ -14,6 +14,8 @@ The dashboard uses locally available Segoe UI/system fonts, 16px body text and f
 
 The **Business launch** tab displays a locally configured business identity, contact/signup email, honest mailbox/support capability status and downloadable launch documents. Setup and bounded local specialty-agent preparation are described in [BUSINESS-LAUNCH.md](BUSINESS-LAUNCH.md). Business data stays in ignored `data/workspace/business-launch/`; this repository does not contain a real contact list, Gmail credentials or autonomous email transport. Master plans now fail closed instead of broadcasting invalid plans to every connected worker.
 
+For a shorter document path, configure the optional absolute `GERALD_BUSINESS_DOCS` directory in `.env`. The dashboard then serves business guides from that folder, and agents with `business_docs_read` receive bounded, read-only excerpts. Runtime settings, ledgers and credentials remain in `data/`; repository guides stay in Git. See [document relocation](BUSINESS-LAUNCH.md#keep-documents-in-a-convenient-folder).
+
 ### QwenW specialists and model selection
 
 The six QwenW profiles are now available through the **QwenW toolbox** (wrench icon), with a shared project canvas, coder architecture-review gate and draft-only outreach. GERALD remains the runtime; the QwenW prototype engine is not used. For installation, file locations, workflow and safeguards, see [QWENW.md](QWENW.md).

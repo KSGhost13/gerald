@@ -6,6 +6,7 @@ from gerald.main import app
 
 @pytest.fixture
 def desk(tmp_path, monkeypatch):
+    monkeypatch.delenv('GERALD_BUSINESS_DOCS', raising=False)
     (tmp_path / 'db').mkdir()
     monkeypatch.setattr(storage, 'DATA', tmp_path / 'db')
     root = tmp_path / 'business'
@@ -52,3 +53,33 @@ def test_oversized_configuration_is_rejected(desk):
     (desk / 'desk.json').write_text('x' * 24001, encoding='utf-8')
     with pytest.raises(ValueError, match='size limit'):
         business.launch_snapshot()
+
+def test_external_documents_keep_runtime_separate(desk, monkeypatch):
+    external = desk.parent / 'Desktop docs'
+    external.mkdir()
+    configure(desk)
+    (external / 'START-HERE.md').write_text('Desktop canonical guide', encoding='utf-8')
+    (external / 'desk.json').write_text('not runtime configuration', encoding='utf-8')
+    monkeypatch.setenv('GERALD_BUSINESS_DOCS', str(external))
+    assert business.launch_snapshot()['email'] == 'owner@example.com'
+    assert business.launch_snapshot()['documents'] == ['START-HERE.md']
+    assert business.document_path('START-HERE.md').read_text() == 'Desktop canonical guide'
+    with pytest.raises(ValueError):
+        business.document_path('desk.json')
+
+def test_relative_external_root_is_rejected(desk, monkeypatch):
+    monkeypatch.setenv('GERALD_BUSINESS_DOCS', '../elsewhere')
+    with pytest.raises(ValueError, match='absolute'):
+        business.document_root()
+
+def test_agent_document_context_is_scoped_and_bounded(desk):
+    from gerald.models import AgentSpec
+    (desk / 'START-HERE.md').write_text('a' * 12000, encoding='utf-8')
+    (desk / 'LAUNCH-PLAN.md').write_text('b' * 12000, encoding='utf-8')
+    (desk / 'credentials.txt').write_text('never inject me', encoding='utf-8')
+    spec = AgentSpec(name='ATLAS', tools=['business_docs_read'])
+    text = business.agent_document_context(spec)
+    assert 'untrusted reference' in text and str(desk) in text
+    assert 'never inject me' not in text
+    assert text.count('a') < 2700 and text.count('b') < 5700
+    assert '[Excerpt truncated]' in text

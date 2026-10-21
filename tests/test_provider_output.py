@@ -5,11 +5,14 @@ from gerald import providers
 from gerald.models import AgentSpec, MasterPlan
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('kind', ['plain', 'qwen', 'qwen_writer', 'master'])
+@pytest.mark.parametrize('kind', ['plain', 'qwen', 'qwen_writer', 'master', 'business'])
 async def test_ollama_uses_structured_output_only_for_required_contracts(monkeypatch, kind):
     spec = AgentSpec(name='Example', provider='ollama', model='installed-test-model',
                      qwen_profile='researcher' if kind.startswith('qwen') else '',
-                     tools=['qwen_canvas_write'] if kind == 'qwen_writer' else [])
+                     tools=['qwen_canvas_write'] if kind == 'qwen_writer' else ['business_docs_read'] if kind == 'business' else [])
+    if kind == 'business':
+        from gerald import business
+        monkeypatch.setattr(business, 'agent_document_context', lambda spec, prompt: '\nCanonical document excerpt test marker')
     if kind == 'master':
         spec._output_schema = MasterPlan.model_json_schema()
     requests = []
@@ -25,6 +28,7 @@ async def test_ollama_uses_structured_output_only_for_required_contracts(monkeyp
         emitted.append(value)
     assert await providers.generate(spec, 'Test', emit, {}, 'local') == 'public answer'
     body = requests[0]
+    assert ('Canonical document excerpt test marker' in body['messages'][0]['content']) == (kind == 'business')
     if kind == 'master':
         assert body['format'] == MasterPlan.model_json_schema()
     elif kind == 'qwen':

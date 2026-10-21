@@ -4,11 +4,16 @@ No mail transport, signups, spending, code execution or approval endpoints.
 Inputs/ledger/results stay in ignored data/workspace/business-launch.
 """
 import json
+import os
 import time
 from pathlib import Path
 import httpx
+from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parents[1] / 'data' / 'workspace' / 'business-launch'
+PROJECT = Path(__file__).resolve().parents[1]
+ROOT = PROJECT / 'data' / 'workspace' / 'business-launch'
+load_dotenv(PROJECT / '.env')
+DOCS = Path(os.getenv('GERALD_BUSINESS_DOCS') or ROOT).expanduser()
 
 def save(path, value):
     temp = path.with_suffix('.tmp')
@@ -16,6 +21,8 @@ def save(path, value):
     temp.replace(path)
 
 def run():
+    if not DOCS.is_absolute() or not DOCS.is_dir() or DOCS.is_symlink() or DOCS.is_junction():
+        raise ValueError('Launch document directory must be an existing absolute, non-link directory')
     config = json.loads((ROOT / 'batch.json').read_text(encoding='utf-8'))
     ledger_path = ROOT / 'run.json'
     ledger = json.loads(ledger_path.read_text(encoding='utf-8')) if ledger_path.exists() else {'stages': {}}
@@ -45,7 +52,7 @@ def run():
                     raise ValueError(f'{key}: unresolved previous attempt; reconcile saved job before retrying')
                 state = api('/state')
                 worker = next(a for a in state['agents'] if a['id'] == target)
-                if worker['status'] in ('paused', 'aborted', 'pausing') or worker['tools'] not in ([], ['qwen_canvas_read']):
+                if worker['status'] in ('paused', 'aborted', 'pausing') or set(worker['tools']) - {'qwen_canvas_read', 'business_docs_read'}:
                     raise ValueError('Initial planning batch requires available read-only workers')
                 api('/graph', 'PUT', {'edges': [{'source': 'gerald', 'target': target}]})
                 evidence = stage.get('evidence', '')
@@ -86,7 +93,7 @@ def run():
                 answer = result_events[-1]['message']
                 record.update(status='completed', answer=answer, job=current, routed=len(packets))
                 save(ledger_path, ledger)
-                (ROOT / f'{key}.md').write_text(f'# {key} — AI draft, not owner-approved\n\nJob: {job["id"]}\n\n{answer}\n', encoding='utf-8')
+                (DOCS / f'{key}.md').write_text(f'# {key} — AI draft, not owner-approved\n\nJob: {job["id"]}\n\n{answer}\n', encoding='utf-8')
                 print(f'{key}: completed, saved draft ({len(answer)} characters)', flush=True)
         finally:
             # Avoid changing routes of a task still running after a timeout/interruption.

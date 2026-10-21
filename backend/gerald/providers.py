@@ -122,6 +122,9 @@ async def generate(spec, prompt, emit, metrics, mode):
             await emit(value)
 
     context = spec.directive
+    if 'business_docs_read' in spec.tools:
+        from .business import agent_document_context
+        context += agent_document_context(spec, prompt)
     # Pack context is supplied by the validated adapter. Do not sweep its archive,
     # customer drafts or unrelated workspace files into a model's system prompt.
     if 'system_metrics' in spec.tools:

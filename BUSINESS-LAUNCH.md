@@ -23,6 +23,14 @@ Supported local documents: `START-HERE.md`, `LAUNCH-PLAN.md`, `SERVICE-PLAYBOOK.
 
 Refresh the tab after updating files. A Gmail link opens the first account in that browser; verify the selected address. Displaying an email address or having a browser session does **not** grant agents OAuth/IMAP/SMTP access. Mail transport, scopes, signup terms, exact recipient/content approval and support staffing are separate decisions. No background mail polling or sending is installed.
 
+## Keep documents in a convenient folder
+
+Optionally set `GERALD_BUSINESS_DOCS` in the ignored `.env` to an **absolute directory**, then restart the backend. Move the human-readable business Markdown files and prospect CSV there. The launch desk reads its fixed document allowlist from that location; `desk.json`, ledgers, configuration, snapshots, claims and credentials stay in the repository's ignored `data/`. No junction or symlink is needed or accepted by the document reader. The default remains the original business workspace when the variable is unset.
+
+Enable **Read canonical business guides** (`business_docs_read`) on appropriate agents to inject role-selected, read-only document excerpts into their task context. All providers use the same adapter, including Qwen specialists with native filesystem tools disabled. Context is capped at 8,000 document characters per task; filenames explicitly mentioned in a task take priority. This is scoped reference access, not arbitrary filesystem access, code execution or approval authority. Agents do not need the old prototype engine or permission to browse the whole Desktop folder. The standalone launch runner also saves human-readable stage results in the configured document folder while retaining its ledger in `data/`.
+
+Keep portable repository guides (README, AGENTS, SESSION-BRAIN, QWENW and this guide) in Git. Reference copies or shortcuts may be placed beside the business documents for convenience; update them after source changes. Use a local command wrapper pointing to the real repository instead of moving the running checkout, virtualenv or database without a full migration plan.
+
 ## Bounded internal planning run
 
 An operator may prepare `batch.json` in the same ignored directory, then run:
